@@ -1,12 +1,5 @@
 [
   {
-    "name": "Click",
-    "owner": "LiQiyeDev",
-    "repo": "ClickTest",
-    "description": "A library test",
-    "tags": []
-  },
-  {
     "name": "PushTest",
     "owner": "LiQiyeDev",
     "repo": "PushTest",
