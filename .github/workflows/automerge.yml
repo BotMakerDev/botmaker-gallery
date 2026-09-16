@@ -1,0 +1,122 @@
+name: Auto-merge
+
+# Lists a bot without a maintainer. For every open pull request: collect the facts (tools/listing-facts.sh,
+# through the API only), ask com.botmaker.cli.gallery.ListingPolicy, and act on its answer:
+#
+#   merge   squash-merge at the head commit the checks ran on, then start index.yml. Lands as Community.
+#   wait    the author is over 3 new listings in 24 hours: label `waiting`, one comment saying when. The
+#           hourly run merges it once the window frees.
+#   manual  anything outside bots/, an entry the author cannot be shown to own, too many bots at once: label
+#           `needs-maintainer`, one comment saying why.
+#   hold    the checks have not passed: nothing.
+#
+# THIS JOB HOLDS A TOKEN THAT CAN MERGE, SO IT NEVER CHECKS OUT OR RUNS A PULL REQUEST'S CODE. `workflow_run`
+# and `schedule` run the workflow file on main; the pull request is only ever read through the API, as data.
+# The policy's "only bots/<file>.json" rule is load-bearing for the same reason: a pull request that edits a
+# workflow or tools/ can give itself a green check, and it is exactly the pull request this job refuses.
+
+on:
+  workflow_run:
+    workflows: [Validate]
+    types: [completed]
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+  actions: write
+  checks: read
+
+concurrency:
+  group: automerge
+  cancel-in-progress: false
+
+jobs:
+  automerge:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Resolve botmaker-cli
+        run: tools/resolve-cli.sh "$RUNNER_TEMP/cli-classpath.txt"
+
+      - name: Labels
+        run: |
+          gh label create waiting --color fbca04 \
+              --description "Passes; merges automatically when the author's daily limit frees" 2>/dev/null || true
+          gh label create needs-maintainer --color d93f0b \
+              --description "Passes, but a maintainer has to merge it" 2>/dev/null || true
+
+      - name: Decide and act
+        run: |
+          marker='<!-- botmaker-listing -->'
+          merged=false
+
+          # One comment per pull request, edited in place, and only when what it says changed — this runs
+          # hourly, and a comment per run would bury the conversation.
+          sticky() {
+              local pr="$1" body="$marker"$'\n'"$2"
+              local id
+              id="$(gh api "repos/$GH_REPO/issues/$pr/comments?per_page=100" \
+                  --jq "[.[] | select(.body | startswith(\"$marker\"))] | first | .id // empty" || true)"
+              if [ -z "$id" ]; then
+                  gh api "repos/$GH_REPO/issues/$pr/comments" -f body="$body" >/dev/null
+              elif [ "$(gh api "repos/$GH_REPO/issues/comments/$id" --jq .body)" != "$body" ]; then
+                  gh api -X PATCH "repos/$GH_REPO/issues/comments/$id" -f body="$body" >/dev/null
+              fi
+          }
+
+          for pr in $(gh pr list --state open --limit 100 --json number --jq '.[].number'); do
+              echo "::group::#$pr"
+              if ! tools/listing-facts.sh "$pr" > "$RUNNER_TEMP/facts.json"; then
+                  echo "could not collect facts for #$pr"; echo "::endgroup::"; continue
+              fi
+              cat "$RUNNER_TEMP/facts.json"
+              decision="$(java -cp "$(cat "$RUNNER_TEMP/cli-classpath.txt")" \
+                  com.botmaker.cli.gallery.ListingPolicy "$RUNNER_TEMP/facts.json")"
+              echo "$decision"
+              kind="$(jq -r .decision <<<"$decision")"
+              reason="$(jq -r .reason <<<"$decision")"
+              sha="$(jq -r .headSha "$RUNNER_TEMP/facts.json")"
+
+              case "$kind" in
+                  merge)
+                      if gh pr merge "$pr" --squash --match-head-commit "$sha"; then
+                          merged=true
+                      else
+                          echo "merge of #$pr refused (moved or conflicted); the next run looks again"
+                      fi
+                      ;;
+                  wait)
+                      gh pr edit "$pr" --add-label waiting --remove-label needs-maintainer >/dev/null || true
+                      sticky "$pr" "This pull request passes the gallery's checks. $reason"
+                      ;;
+                  manual)
+                      gh pr edit "$pr" --add-label needs-maintainer --remove-label waiting >/dev/null || true
+                      sticky "$pr" "This pull request passes the gallery's checks, but it is not merged automatically: $reason"
+                      ;;
+                  hold)
+                      gh pr edit "$pr" --remove-label waiting >/dev/null 2>&1 || true
+                      ;;
+              esac
+              echo "::endgroup::"
+          done
+
+          # A merge made with this job's own token triggers no push workflow, by GitHub's design; a
+          # workflow_dispatch is the documented exception.
+          if [ "$merged" = true ]; then
+              gh workflow run index.yml --ref main
+          fi

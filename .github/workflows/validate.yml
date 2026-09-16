@@ -1,20 +1,26 @@
 name: Validate
 
-# The gate. Deliberately small: a gallery entry is a pointer to somebody's repository, not a plugin loaded
-# into Studio's process, so there is nothing here to resolve and nothing to run. What it checks is the
-# layout, and the one thing an out-of-date Studio gets wrong.
+# THE GATE. A pull request that passes is merged by automerge.yml with nobody reading it, so this is the only
+# review a Community listing gets. Every rule is com.botmaker.cli.gallery.GalleryGate, resolved from
+# botmaker-cli's published library (tools/resolve-cli.sh) — the same checks `botmaker bot publish` runs on the
+# author's machine before it opens the pull request.
 #
-# NO JAVA, no botmaker-cli: botmaker-plugin-registry's gate exists because a plugin's checks must be the ones
-# its author already ran locally. A gallery submission has no local checks to match.
+# NOTHING FROM THE PULL REQUEST IS EXECUTED AS CODE except what this repository already holds: a pull request
+# only ever adds JSON under bots/. One that changes this workflow, tools/ or anything else outside bots/
+# still gets a check — computed by its own copy — and automerge.yml refuses to merge it and hands it to a
+# maintainer. That rule, not this file, is what makes a green check trustworthy.
+#
+# It is not a security review. A bot is a Java program somebody builds and runs; see README.md.
 
 on:
   pull_request:
-    paths:
-      - 'bots/**'
-      - 'index.json'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
+  # The job id is what automerge.yml looks for among a commit's check runs. Renaming it is a change there too.
   validate:
     runs-on: ubuntu-latest
     steps:
@@ -22,48 +28,39 @@ jobs:
         with:
           fetch-depth: 0
 
-      # A pull request chooses its own filenames, so the changed list is attacker-controlled text: it is
-      # written to a file and read with `grep -x`, never interpolated into a command.
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      # Written to a FILE, never into a later `run:` line. A pull request chooses its own filenames, so the list
+      # is attacker-controlled text; the gate reads it itself through its `@file` form.
+      #
+      # The BASE tree beside it, because ownership of an existing listing is read from what the gallery holds
+      # today: bots/a-b-c.json is both a-b/c and a/b-c, and the pull request's copy says whatever it likes.
       - name: What this pull request changed
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
         run: |
-          git diff --name-only "$BASE_SHA" HEAD > /tmp/changed.txt
-          cat /tmp/changed.txt
+          mkdir -p target
+          git diff --name-only "$BASE_SHA" HEAD > target/changed.txt
+          cat target/changed.txt
+          git worktree add --detach target/base "$BASE_SHA"
 
-      # THE ONE REFUSAL THAT NEEDS A GOOD MESSAGE. A BotMaker Studio older than the release that moved
-      # publishing to per-entry files opens exactly this pull request — it read index.json, appended its
-      # entry and committed the whole array back. The refusal has to name the update, because from inside
-      # that Studio the submission looked like it worked.
-      - name: index.json is generated
-        run: |
-          if grep -qx 'index.json' /tmp/changed.txt; then
-            echo "::error file=index.json::index.json is generated from bots/*.json and committed by CI." \
-                 "If BotMaker Studio opened this pull request, update Studio: releases before the" \
-                 "per-entry gallery wrote the whole index and can no longer publish. Otherwise add or edit" \
-                 "bots/<owner>-<repo>.json instead."
-            exit 1
-          fi
+      - name: Resolve botmaker-cli
+        run: tools/resolve-cli.sh target/gate-classpath.txt
 
-      - name: Entries are well formed
+      # author_association rather than the collaborator-permission API: a pull request from a fork gets a
+      # read-only token, which that endpoint refuses. OWNER, MEMBER and COLLABORATOR are the accounts that can
+      # push here.
+      - name: Run the gate
+        env:
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          ASSOCIATION: ${{ github.event.pull_request.author_association }}
         run: |
-          status=0
-          while IFS= read -r file; do
-              case "$file" in
-                  bots/*.json) ;;
-                  *) continue ;;
-              esac
-              # A deletion — delisting a bot — needs no checking at all.
-              [ -f "$file" ] || continue
-              slug="$(jq -r '"\(.owner)-\(.repo)"' "$file")"
-              expected="bots/$slug.json"
-              if [ "$file" != "$expected" ]; then
-                  echo "::error file=$file::the filename is the bot's owner-repo: rename this to $expected"
-                  status=1
-              fi
-              if [ "$(jq -r '.name // ""' "$file")" = "" ]; then
-                  echo "::error file=$file::an entry needs a name"
-                  status=1
-              fi
-          done < /tmp/changed.txt
-          exit $status
+          maintainer=()
+          case "$ASSOCIATION" in
+              OWNER|MEMBER|COLLABORATOR) maintainer=(--maintainer) ;;
+          esac
+          java -cp "$(cat target/gate-classpath.txt)" com.botmaker.cli.gallery.GalleryGate . \
+               --base target/base --author "$AUTHOR" "${maintainer[@]}" @target/changed.txt

@@ -1,0 +1,37 @@
+{
+  "schemaVersion" : 2,
+  "bots" : [ {
+    "name" : "PushTest",
+    "owner" : "LiQiyeDev",
+    "repo" : "PushTest",
+    "tier" : "community"
+  }, {
+    "name" : "Update",
+    "owner" : "LiQiyeDev",
+    "repo" : "Update",
+    "launchTargets" : [ "heroic" ],
+    "tier" : "community"
+  }, {
+    "name" : "base",
+    "owner" : "LiQiyeDev",
+    "repo" : "botmaker-base",
+    "description" : "A blank bot project to start from — a pom, one main() and nothing else.",
+    "tags" : [ "template" ],
+    "tier" : "vetted",
+    "vettedVersion" : "v0.1.0",
+    "vettedAt" : "2026-09-16"
+  }, {
+    "name" : "gamebot",
+    "owner" : "LiQiyeDev",
+    "repo" : "botmaker-gamebot",
+    "description" : "A game bot to start from — window capture, image matching and a click loop.",
+    "tags" : [ "game", "template", "vision" ],
+    "requires" : [ {
+      "id" : "com.botmaker.sdk",
+      "version" : "1.1.6"
+    } ],
+    "tier" : "vetted",
+    "vettedVersion" : "v0.1.0",
+    "vettedAt" : "2026-09-16"
+  } ]
+}

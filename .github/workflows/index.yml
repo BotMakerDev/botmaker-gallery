@@ -1,38 +1,62 @@
 name: Index
 
-# Regenerates index.json from bots/*.json after a merge, and commits it if it changed.
+# Regenerates catalog.json and index.json from bots/ and vetted/ after a merge, and commits them if they changed.
 #
-# This job is the only thing that writes index.json, which is what lets validate.yml refuse a pull request
-# that edits it by hand. The file's PATH is a compatibility promise: every already-shipped Studio reads it
-# from raw.githubusercontent.com at exactly this location, so it must never move.
+# This job is the only thing that writes either file, which is what lets the gate refuse a pull request that
+# edits one. The rules are com.botmaker.cli.gallery.CatalogBuilder:
+#
+#   catalog.json  every listing with its tier (Vetted / Community). What Studio reads since 2026-09-16.
+#   index.json    VETTED listings only, in the old array shape. Every earlier Studio has this URL compiled in
+#                 and cannot show a tier, so it is given only what a maintainer looked at. Its path never moves.
+#
+# automerge.yml starts this workflow by name after it merges: a merge made with the workflow's own token
+# triggers no `push` workflow, by GitHub's design.
 
 on:
   push:
     branches: [main]
     paths:
       - 'bots/**'
-      - 'tools/build-index.sh'
+      - 'vetted/**'
+      - 'tools/botmaker-cli.version'
   workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: index
+  cancel-in-progress: false
 
 jobs:
   index:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
 
-      - name: Regenerate
-        run: tools/build-index.sh
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
 
-      - name: Commit if it changed
+      - name: Resolve botmaker-cli
+        run: tools/resolve-cli.sh "$RUNNER_TEMP/cli-classpath.txt"
+
+      - name: Regenerate
+        run: java -cp "$(cat "$RUNNER_TEMP/cli-classpath.txt")" com.botmaker.cli.gallery.CatalogBuilder .
+
+      # `git diff --quiet` rather than committing unconditionally: a no-op commit on every push would make the
+      # files' history say nothing about when the gallery actually changed. Pulled first because two merges
+      # can land while this runs.
+      - name: Commit if they changed
         run: |
-          if git diff --quiet -- index.json; then
-            echo "index.json is already up to date."
+          if git diff --quiet -- catalog.json index.json; then
+            echo "catalog.json and index.json are already up to date."
             exit 0
           fi
           git config --local user.name "github-actions[bot]"
           git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.json
-          git commit -m "gallery: regenerate index.json"
+          git add catalog.json index.json
+          git commit -m "gallery: regenerate catalog.json and index.json"
+          git pull --rebase
           git push
