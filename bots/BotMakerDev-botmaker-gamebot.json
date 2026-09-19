@@ -1,7 +1,7 @@
 {
   "schemaVersion" : 2,
   "name" : "gamebot",
-  "owner" : "LiQiyeDev",
+  "owner" : "BotMakerDev",
   "repo" : "botmaker-gamebot",
   "description" : "A game bot to start from — window capture, image matching and a click loop.",
   "tags" : [ "game", "template", "vision" ],

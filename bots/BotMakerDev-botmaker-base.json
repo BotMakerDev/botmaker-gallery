@@ -1,7 +1,7 @@
 {
   "schemaVersion" : 2,
   "name" : "base",
-  "owner" : "LiQiyeDev",
+  "owner" : "BotMakerDev",
   "repo" : "botmaker-base",
   "description" : "A blank bot project to start from — a pom, one main() and nothing else.",
   "tags" : [ "template" ]

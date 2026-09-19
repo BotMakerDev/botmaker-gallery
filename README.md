@@ -27,7 +27,8 @@ library at the pinned version and call it. `botmaker bot publish` runs the same 
 before it opens a pull request, so a refusal here is one you could already have seen.
 
 **`index.json` never moves, and it holds only Vetted bots.** Every Studio released before 2026-09-16 reads it
-from `raw.githubusercontent.com/LiQiyeDev/botmaker-gallery/main/index.json` and cannot show a tier. So it
+from `raw.githubusercontent.com/BotMakerDev/botmaker-gallery/main/index.json` — spelled `LiQiyeDev` in the
+Studios built before the repository moved into the organization on 2026-09-18 — and cannot show a tier. So it
 gets only the bots a maintainer looked at. Newer Studios read `catalog.json`. One cost: an older Studio
 installs a Vetted bot's *newest* release, because it never learned what `vettedVersion` is.
 
@@ -66,7 +67,7 @@ protection must let the Actions bot merge.
 {
   "schemaVersion": 2,
   "name": "gamebot",
-  "owner": "LiQiyeDev",
+  "owner": "BotMakerDev",
   "repo": "botmaker-gamebot",
   "description": "A game bot to start from.",
   "tags": ["game", "template"],
@@ -90,7 +91,7 @@ A maintainer adds `vetted/<owner>-<repo>.json`, from the dashboard or by hand:
 ```json
 {
   "schemaVersion": 1,
-  "owner": "LiQiyeDev",
+  "owner": "BotMakerDev",
   "repo": "botmaker-gamebot",
   "vettedVersion": "v0.1.0",
   "vettedAt": "2026-09-16",
