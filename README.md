@@ -113,13 +113,11 @@ whole point. A new starting point needs no Studio release, and the people who wr
 write the templates. Studio composes exactly one starting point of its own (a blank project, so New Project
 works with no network). Every richer one lives here.
 
-The one extra thing a template needs is a `botmaker-template.properties` at its repository root:
+A template needs nothing extra. Its package is the one holding its `main()` (`com.botmaker.gamebot`, say).
+The `botmaker-template.properties` templates carried until 2026-09-27 is read by nothing now, and a copy
+made from an older release has it removed.
 
-```properties
-package=com.botmaker.gamebot
-```
-
-That prefix is replaced with the user's own when they start from it (`com.myfarmer`, say), and the
+That package is replaced with the user's own when they start from it (`com.myfarmer`, say), and the
 directories move with it. **Nothing else is renamed**: the entry class and everything else keep the names
 their author gave them, so the copy is the project that demonstrably built for them.
 
