@@ -1,12 +1,12 @@
 {
   "schemaVersion" : 2,
-  "name" : "gamebot",
+  "name" : "botmaker-gamebot",
   "owner" : "BotMakerDev",
   "repo" : "botmaker-gamebot",
   "description" : "A game bot to start from — window capture, image matching and a click loop.",
-  "tags" : [ "game", "template", "vision" ],
+  "tags" : [ "game", "vision", "template" ],
   "requires" : [ {
     "id" : "com.botmaker.sdk",
-    "version" : "1.1.6"
+    "version" : "1.2.3"
   } ]
 }
