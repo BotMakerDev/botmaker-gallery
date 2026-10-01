@@ -5,9 +5,9 @@
   "description" : "A blank bot project to start from — a pom, one main() and nothing else.",
   "tags" : [ "template" ]
 }, {
-  "name" : "gamebot",
+  "name" : "botmaker-gamebot",
   "owner" : "BotMakerDev",
   "repo" : "botmaker-gamebot",
   "description" : "A game bot to start from — window capture, image matching and a click loop.",
-  "tags" : [ "game", "template", "vision" ]
+  "tags" : [ "game", "vision", "template" ]
 } ]
