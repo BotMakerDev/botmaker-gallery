@@ -20,7 +20,15 @@ vetted/<owner>-<repo>.json    maintainer-only: which release of that bot is vett
 catalog.json                  GENERATED: every listing and its tier. What Studio reads
 index.json                    GENERATED: Vetted listings only, in the old array shape
 tools/botmaker-cli.version    the botmaker-cli release whose rules the workflows run
+tools/mirror.sh               copies listed bots' release archives into the `mirror` release (mirror.yml)
 ```
+
+**The author keeps the repository; the gallery keeps a copy of each release.** `mirror.yml` runs after every
+index and once a day. It uploads each listing's newest release, and a Vetted bot's `vettedVersion`, as
+`<owner>__<repo>__<tag>.zip` on this repository's release tagged `mirror`. An asset is GitHub's own archive of
+the tag, taken the first time the job saw it, and it is never replaced. Studio downloads the author's archive
+first and the copy only when that answers 404, so a bot whose author deleted the repository still installs.
+Try it locally with `DRY_RUN=1 tools/mirror.sh`; it prints what it would upload and changes nothing.
 
 **Every rule lives in `botmaker-cli`, not here**, in `com.botmaker.cli.gallery`. The workflows resolve that
 library at the pinned version and call it. `botmaker bot publish` runs the same checks on your machine
