@@ -1,0 +1,39 @@
+name: Mirror
+
+# Copies every listed bot's release archives into this repository's `mirror` release (tools/mirror.sh), so a
+# bot stays installable when its author deletes the repository. Studio reads the copy only after the author's
+# archive answers 404.
+#
+# After every Index run, because that is when a listing appears; and daily, because an author's new release
+# changes no file here. Append only: an asset that exists is never replaced.
+#
+# It runs this repository's own script on main and reads every listing as data (catalog.json, the API), never
+# a pull request's files, so the write token it holds reaches nothing a submitter wrote.
+
+on:
+  workflow_run:
+    workflows: [Index]
+    types: [completed]
+  schedule:
+    - cron: '41 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Mirror release archives
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/mirror.sh

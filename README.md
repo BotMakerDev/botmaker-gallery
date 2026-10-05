@@ -20,7 +20,15 @@ vetted/<owner>-<repo>.json    maintainer-only: which release of that bot is vett
 catalog.json                  GENERATED: every listing and its tier. What Studio reads
 index.json                    GENERATED: Vetted listings only, in the old array shape
 tools/botmaker-cli.version    the botmaker-cli release whose rules the workflows run
+tools/mirror.sh               copies listed bots' release archives into the `mirror` release (mirror.yml)
 ```
+
+**The author keeps the repository; the gallery keeps a copy of each release.** `mirror.yml` runs after every
+index and once a day. It uploads each listing's newest release, and a Vetted bot's `vettedVersion`, as
+`<owner>__<repo>__<tag>.zip` on this repository's release tagged `mirror`. An asset is GitHub's own archive of
+the tag, taken the first time the job saw it, and it is never replaced. Studio downloads the author's archive
+first and the copy only when that answers 404, so a bot whose author deleted the repository still installs.
+Try it locally with `DRY_RUN=1 tools/mirror.sh`; it prints what it would upload and changes nothing.
 
 **Every rule lives in `botmaker-cli`, not here**, in `com.botmaker.cli.gallery`. The workflows resolve that
 library at the pinned version and call it. `botmaker bot publish` runs the same checks on your machine
@@ -113,13 +121,11 @@ whole point. A new starting point needs no Studio release, and the people who wr
 write the templates. Studio composes exactly one starting point of its own (a blank project, so New Project
 works with no network). Every richer one lives here.
 
-The one extra thing a template needs is a `botmaker-template.properties` at its repository root:
+A template needs nothing extra. Its package is the one holding its `main()` (`com.botmaker.gamebot`, say).
+The `botmaker-template.properties` templates carried until 2026-09-27 is read by nothing now, and a copy
+made from an older release has it removed.
 
-```properties
-package=com.botmaker.gamebot
-```
-
-That prefix is replaced with the user's own when they start from it (`com.myfarmer`, say), and the
+That package is replaced with the user's own when they start from it (`com.myfarmer`, say), and the
 directories move with it. **Nothing else is renamed**: the entry class and everything else keep the names
 their author gave them, so the copy is the project that demonstrably built for them.
 

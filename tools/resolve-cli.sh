@@ -35,7 +35,7 @@ cat > "$work/pom.xml" <<POM
     </repositories>
     <dependencies>
         <dependency>
-            <groupId>com.github.LiQiyeDev</groupId>
+            <groupId>com.github.BotMakerDev</groupId>
             <artifactId>botmaker-cli</artifactId>
             <version>$version</version>
         </dependency>
